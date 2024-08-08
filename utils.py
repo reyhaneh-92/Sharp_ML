@@ -9,7 +9,6 @@ from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 from tensorflow.keras.utils import to_categorical
 import matplotlib.pyplot as plt
-from scikeras.wrappers import KerasClassifier
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.metrics import classification_report
 from tabulate import tabulate
