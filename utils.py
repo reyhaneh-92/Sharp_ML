@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 from tensorflow.keras.utils import to_categorical
 import matplotlib.pyplot as plt
+from scikeras.wrappers import KerasClassifier
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.metrics import classification_report
 from tabulate import tabulate
@@ -27,11 +28,13 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.linear_model import Ridge
 from keras import backend as K
 import seaborn as sns
+from scipy.stats import gaussian_kde
+
 
 path = '/panfs/jay/groups/0/ebtehaj/rahim035/sajad_s/project-4/revision'
 
 
-def process_and_normalize(data):
+def process_and_normalize(data, surf_type):
     """
     Normalize dataset features using provided mean and standard deviation.
 
@@ -44,10 +47,10 @@ def process_and_normalize(data):
     Returns:
         tuple: (np.ndarray, np.ndarray) - Normalized features and target variables.
     """
-    file_path = path + '/stats/stat_ocean_subset.mat'
+    file_path = path + f'/stats/stat_{surf_type}_subset.mat'
     stat = sio.loadmat(file_path)
-    std = stat['std_ocean_det']
-    mean = stat['mean_ocean_det']
+    std = stat[f'std_{surf_type}_det']
+    mean = stat[f'mean_{surf_type}_det']
     # Extract features and target variables
     X_data = data.iloc[:, :18].values
     y_data = data.iloc[:, 18:20].values
@@ -431,3 +434,319 @@ def plot_density_scatter(ax, y_tst, rate_prd, label_prd, label_class, threshold=
         transform=ax.transAxes,
         bbox=dict(facecolor='gray', alpha=0.3, edgecolor='black')
     )
+    
+    
+def CDFmatch_orbit(CDF_ref, CDF_prd, biased):
+    cdf_x = interp1d(CDF_prd[:,0],CDF_prd[:,1],fill_value="extrapolate")(biased)
+    x_cdf= interp1d(CDF_ref[:,1],CDF_ref[:,0], fill_value="extrapolate")(cdf_x)
+    RTV_DB=x_cdf
+    return RTV_DB
+
+
+#%% Orbital retrievals 
+
+import tensorflow as tf
+from tensorflow import keras
+import os
+import scipy.io as sio
+import numpy as np
+import glob
+from sklearn.neighbors import NearestNeighbors
+from scipy.interpolate import interp1d
+import pandas as pd
+import pickle
+
+# Custom loss class
+class CategoricalFocalLoss(tf.keras.losses.Loss):
+    def __init__(self, alpha, gamma):
+        super().__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+
+    def call(self, y_true, y_pred):
+        epsilon = keras.backend.epsilon()
+        y_pred = keras.backend.clip(y_pred, epsilon, 1. - epsilon)
+        cross_entropy = -y_true * keras.backend.log(y_pred)
+        loss = self.alpha * keras.backend.pow(1 - y_pred, self.gamma) * cross_entropy
+        return keras.backend.mean(keras.backend.sum(loss, axis=-1))
+
+# Function to find k-nearest neighbors
+def find_knn(X, y, k):
+    nn = NearestNeighbors(n_neighbors=k)
+    nn.fit(X)
+    distances, indices = nn.kneighbors(y)
+    return distances, indices
+
+# Function to localize rate using k-nearest neighbors
+def loc_rate(f_train, f_test, y_train, k_nn):
+    distances, indices = find_knn(f_train, f_test, k_nn)
+    y_pred_loc = np.zeros(indices.shape)
+    for i in range(len(f_test)):
+        for j in range(k_nn):
+            y_pred_loc[i, j] = y_train[indices[i, j]]
+    return y_pred_loc
+
+# Function to match CDFs
+def CDFmatch_orbit(CDF_ref, CDF_prd, biased):
+    cdf_x = interp1d(CDF_prd[:, 0], CDF_prd[:, 1], fill_value="extrapolate")(biased)
+    x_cdf = interp1d(CDF_ref[:, 1], CDF_ref[:, 0], fill_value="extrapolate")(cdf_x)
+    RTV_DB = x_cdf
+    return RTV_DB
+
+
+
+# Function to load models
+def load_models():
+    path_models = '/panfs/jay/groups/0/ebtehaj/rahim035/sajad_s/project-4/revision/models/'
+    
+    models = {
+        'ocean': {
+            'dtc': pickle.load(open(path_models + 'ocean_det_xgb.pickle.dat', "rb")),
+            'rain': keras.models.load_model(path_models + 'ocean_est_FL_rain_10class.h5', custom_objects={'CategoricalFocalLoss': CategoricalFocalLoss(alpha=0.25, gamma=2)}, compile=False),
+            'snow': keras.models.load_model(path_models + 'ocean_est_FL_snow_10class.h5', custom_objects={'CategoricalFocalLoss': CategoricalFocalLoss(alpha=0.25, gamma=2)}, compile=False)
+        },
+        'land': {
+            'dtc': pickle.load(open(path_models + 'land_det_xgb.pickle.dat', "rb")),
+            'rain': keras.models.load_model(path_models + 'land_est_FL_rain_10class.h5', custom_objects={'CategoricalFocalLoss': CategoricalFocalLoss(alpha=0.25, gamma=2)}, compile=False),
+            'snow': keras.models.load_model(path_models + 'land_est_FL_snow_10class.h5', custom_objects={'CategoricalFocalLoss': CategoricalFocalLoss(alpha=0.25, gamma=2)}, compile=False)
+        },
+        'coast': {
+            'dtc': pickle.load(open(path_models + 'coast_det_xgb.pickle.dat', "rb")),
+            'rain': keras.models.load_model(path_models + 'coast_est_FL_rain_10class.h5', custom_objects={'CategoricalFocalLoss': CategoricalFocalLoss(alpha=0.25, gamma=2)}, compile=False),
+            'snow': keras.models.load_model(path_models + 'coast_est_FL_snow_10class.h5', custom_objects={'CategoricalFocalLoss': CategoricalFocalLoss(alpha=0.25, gamma=2)}, compile=False)
+        },
+        'snow': {
+            'dtc': pickle.load(open(path_models + 'snowcover_det_xgb.pickle.dat', "rb")),
+            'rain': keras.models.load_model(path_models + 'snowcover_est_FL_rain_10class.h5', custom_objects={'CategoricalFocalLoss': CategoricalFocalLoss(alpha=0.25, gamma=2)}, compile=False),
+            'snow': keras.models.load_model(path_models + 'snowcover_est_FL_snow_10class.h5', custom_objects={'CategoricalFocalLoss': CategoricalFocalLoss(alpha=0.25, gamma=2)}, compile=False)
+        },
+        'ice': {
+            'dtc': pickle.load(open(path_models + 'seaice_det_xgb.pickle.dat', "rb")),
+            'rain': keras.models.load_model(path_models + 'seaice_est_FL_rain_10class.h5', custom_objects={'CategoricalFocalLoss': CategoricalFocalLoss(alpha=0.25, gamma=2)}, compile=False),
+            'snow': keras.models.load_model(path_models + 'seaice_est_FL_snow_10class.h5', custom_objects={'CategoricalFocalLoss': CategoricalFocalLoss(alpha=0.25, gamma=2)}, compile=False)
+        }
+    }
+
+    # Extract specific layers as models
+    models['ocean']['rain'] = tf.keras.Model(models['ocean']['rain'].input, models['ocean']['rain'].get_layer('fc_3').output)
+    models['ocean']['snow'] = tf.keras.Model(models['ocean']['snow'].input, models['ocean']['snow'].get_layer('fc_3').output)
+
+    models['land']['rain'] = tf.keras.Model(models['land']['rain'].input, models['land']['rain'].get_layer('fc_3').output)
+    models['land']['snow'] = tf.keras.Model(models['land']['snow'].input, models['land']['snow'].get_layer('fc_3').output)
+
+    models['coast']['rain'] = tf.keras.Model(models['coast']['rain'].input, models['coast']['rain'].get_layer('fc_3').output)
+    models['coast']['snow'] = tf.keras.Model(models['coast']['snow'].input, models['coast']['snow'].get_layer('fc_3').output)
+
+    models['snow']['rain'] = tf.keras.Model(models['snow']['rain'].input, models['snow']['rain'].get_layer('fc_3').output)
+    models['snow']['snow'] = tf.keras.Model(models['snow']['snow'].input, models['snow']['snow'].get_layer('fc_3').output)
+
+    models['ice']['rain'] = tf.keras.Model(models['ice']['rain'].input, models['ice']['rain'].get_layer('fc_3').output)
+    models['ice']['snow'] = tf.keras.Model(models['ice']['snow'].input, models['ice']['snow'].get_layer('fc_3').output)
+
+    return models
+
+# Function to load feature data
+def load_feature_data():
+    path_features = '/panfs/jay/groups/0/ebtehaj/rahim035/sajad_s/project-4/revision/features/'
+
+    features_data = {
+        'ocean': {
+            'X_trn_rain_features_ocean': sio.loadmat(path_features + 'feature_dic_ocean.mat')['X_trn_rain_features_ocean'],
+            'y_trn_rain_ocean': sio.loadmat(path_features + 'feature_dic_ocean.mat')['y_trn_rain_ocean'],
+            'X_trn_snow_features_ocean': sio.loadmat(path_features + 'feature_dic_ocean.mat')['X_trn_snow_features_ocean'],
+            'y_trn_snow_ocean': sio.loadmat(path_features + 'feature_dic_ocean.mat')['y_trn_snow_ocean']
+        },
+        'land': {
+            'X_trn_rain_features_land': sio.loadmat(path_features + 'feature_dic_land.mat')['X_trn_rain_features_land'],
+            'y_trn_rain_land': sio.loadmat(path_features + 'feature_dic_land.mat')['y_trn_rain_land'],
+            'X_trn_snow_features_land': sio.loadmat(path_features + 'feature_dic_land.mat')['X_trn_snow_features_land'],
+            'y_trn_snow_land': sio.loadmat(path_features + 'feature_dic_land.mat')['y_trn_snow_land']
+        },
+        'coast': {
+            'X_trn_rain_features_coast': sio.loadmat(path_features + 'feature_dic_coast.mat')['X_trn_rain_features_coast'],
+            'y_trn_rain_coast': sio.loadmat(path_features + 'feature_dic_coast.mat')['y_trn_rain_coast'],
+            'X_trn_snow_features_coast': sio.loadmat(path_features + 'feature_dic_coast.mat')['X_trn_snow_features_coast'],
+            'y_trn_snow_coast': sio.loadmat(path_features + 'feature_dic_coast.mat')['y_trn_snow_coast']
+        },
+        'snow': {
+            'X_trn_rain_features_snow': sio.loadmat(path_features + 'feature_dic_snowcover.mat')['X_trn_rain_features_snowcover'],
+            'y_trn_rain_snow': sio.loadmat(path_features + 'feature_dic_snowcover.mat')['y_trn_rain_snowcover'],
+            'X_trn_snow_features_snow': sio.loadmat(path_features + 'feature_dic_snowcover.mat')['X_trn_snow_features_snowcover'],
+            'y_trn_snow_snow': sio.loadmat(path_features + 'feature_dic_snowcover.mat')['y_trn_snow_snowcover']
+        },
+        'ice': {
+            'X_trn_rain_features_ice': sio.loadmat(path_features + 'feature_dic_seaice.mat')['X_trn_rain_features_seaice'],
+            'y_trn_rain_ice': sio.loadmat(path_features + 'feature_dic_seaice.mat')['y_trn_rain_seaice'],
+            'X_trn_snow_features_ice': sio.loadmat(path_features + 'feature_dic_seaice.mat')['X_trn_snow_features_seaice'],
+            'y_trn_snow_ice': sio.loadmat(path_features + 'feature_dic_seaice.mat')['y_trn_snow_seaice']
+        }
+    }
+    return features_data
+
+# Function to load stats
+def load_stats():
+    path_stat = '/panfs/jay/groups/0/ebtehaj/rahim035/sajad_s/project-4/revision/stats/'
+
+    stats = {
+        'ocean': sio.loadmat(path_stat + 'stat_ocean_detection.mat'),
+        'land': sio.loadmat(path_stat + 'stat_land_detection.mat'),
+        'coast': sio.loadmat(path_stat + 'stat_coast_detection.mat'),
+        'snow': sio.loadmat(path_stat + 'stat_snowcover_detection.mat'),
+        'ice': sio.loadmat(path_stat + 'stat_seaice_detection.mat')
+    }
+    return stats
+
+# Function to load CDFs
+def load_cdfs():
+    CDFs = sio.loadmat("/panfs/jay/groups/0/ebtehaj/rahim035/sajad_s/project-4/revision/orbital/trained_CDF.mat")
+
+    CDF_data = {
+        'rain': {
+            'ocean': {'prd': CDFs['CDF_prd_rain_ocean'], 'ref': CDFs['CDF_ref_rain_ocean']},
+            'land': {'prd': CDFs['CDF_prd_rain_land'], 'ref': CDFs['CDF_ref_rain_land']},
+            'coast': {'prd': CDFs['CDF_prd_rain_coast'], 'ref': CDFs['CDF_ref_rain_coast']},
+            'snow': {'prd': CDFs['CDF_prd_rain_snow'], 'ref': CDFs['CDF_ref_rain_snow']},
+            'ice': {'prd': CDFs['CDF_prd_rain_ice'], 'ref': CDFs['CDF_ref_rain_ice']}
+        },
+        'snow': {
+            'ocean': {'prd': CDFs['CDF_prd_snow_ocean'], 'ref': CDFs['CDF_ref_snow_ocean']},
+            'land': {'prd': CDFs['CDF_prd_snow_land'], 'ref': CDFs['CDF_ref_snow_land']},
+            'coast': {'prd': CDFs['CDF_prd_snow_coast'], 'ref': CDFs['CDF_ref_snow_coast']},
+            'snow': {'prd': CDFs['CDF_prd_snow_snow'], 'ref': CDFs['CDF_ref_snow_snow']},
+            'ice': {'prd': CDFs['CDF_prd_snow_ice'], 'ref': CDFs['CDF_ref_snow_ice']}
+        }
+    }
+    return CDF_data
+
+# Function to preprocess input data for a specific orbit file
+def preprocess_input_data(file_path, stats):
+    var_names = ['10v', '10h', '18v', '18h', '23v', '36v', '36h', '89v', '89h', '166v', '166h', '183-3', '183-7', 'tclw', 'tciw', 't2m', 'tcwv', 'cape']
+    f_orbit = sio.loadmat(file_path)
+
+    # Prepare detection data
+    X_detection = np.transpose(f_orbit['X_detection'][:, :])
+    X_detection_df = pd.DataFrame(X_detection, columns=var_names)
+    X_detection_df = X_detection_df[['10v', '10h', '18v', '18h', '23v', '36v', '36h', '89v', '89h', '166v', '166h', '183-3', '183-7', 'tciw', 'tclw', 'tcwv', 't2m', 'cape']]
+
+    # Extract mean and std for normalization
+    mean_detection = {
+        'ocean': stats['ocean']['mean_ocean_det'][0, :18],
+        'land': stats['land']['mean_land_det'][0, :18],
+        'coast': stats['coast']['mean_coast_det'][0, :18],
+        'snow': stats['snow']['mean_snowcover_det'][0, :18],
+        'ice': stats['ice']['mean_seaice_det'][0, :18]
+    }
+    std_detection = {
+        'ocean': stats['ocean']['std_ocean_det'][0, :18],
+        'land': stats['land']['std_land_det'][0, :18],
+        'coast': stats['coast']['std_coast_det'][0, :18],
+        'snow': stats['snow']['std_snowcover_det'][0, :18],
+        'ice': stats['ice']['std_seaice_det'][0, :18]
+    }
+
+    # Normalized data for different regions
+    X_normalized = {region: (X_detection_df.values - mean_detection[region]) / std_detection[region] for region in mean_detection}
+
+    return X_normalized
+
+# Function to predict features
+def predict_features(models, X_normalized):
+    predictions = {
+        'ocean': {
+            'det': models['ocean']['dtc'].predict(X_normalized['ocean']),
+            'rain': models['ocean']['rain'].predict(X_normalized['ocean']),
+            'snow': models['ocean']['snow'].predict(X_normalized['ocean'])
+        },
+        'land': {
+            'det': models['land']['dtc'].predict(X_normalized['land']),
+            'rain': models['land']['rain'].predict(X_normalized['land']),
+            'snow': models['land']['snow'].predict(X_normalized['land'])
+        },
+        'coast': {
+            'det': models['coast']['dtc'].predict(X_normalized['coast']),
+            'rain': models['coast']['rain'].predict(X_normalized['coast']),
+            'snow': models['coast']['snow'].predict(X_normalized['coast'])
+        },
+        'snow': {
+            'det': models['snow']['dtc'].predict(X_normalized['snow']),
+            'rain': models['snow']['rain'].predict(X_normalized['snow']),
+            'snow': models['snow']['snow'].predict(X_normalized['snow'])
+        },
+        'ice': {
+            'det': models['ice']['dtc'].predict(X_normalized['ice']),
+            'rain': models['ice']['rain'].predict(X_normalized['ice']),
+            'snow': models['ice']['snow'].predict(X_normalized['ice'])
+        }
+    }
+    return predictions
+
+# Function to localize retrievals
+def localize_retrievals(predictions, features_data, k_nn_rain, k_nn_snow):
+    localized_rates = {}
+    for region in predictions:
+        localized_rates[region] = {
+            'rain': loc_rate(features_data[region]['X_trn_rain_features_' + region], predictions[region]['rain'], features_data[region]['y_trn_rain_' + region][:, 1], k_nn_rain),
+            'snow': loc_rate(features_data[region]['X_trn_snow_features_' + region], predictions[region]['snow'], features_data[region]['y_trn_snow_' + region][:, 1], k_nn_snow),
+            'det': predictions[region]['det']
+        }
+    return localized_rates
+
+
+
+# Function to reconstruct orbit data
+def reconstruct_orbit(localized_rates, orbit_num):
+    orb = '/panfs/jay/groups/0/ebtehaj/rahim035/sajad_s/project-4/revision/orbital/Orbit_' + orbit_num + '.mat'
+    GPROF = sio.loadmat(orb)
+
+    SurfType = GPROF['A2_GPROF']['surfaceType'][0][0]
+    Lat = GPROF["A2_GPROF"]["Lat"][0][0]
+    Lon = GPROF["A2_GPROF"]["Lon"][0][0]
+    [n1, n2] = Lat.shape
+
+    X_precip_label = np.zeros((n1, n2))
+    X_snow = np.zeros((n1, n2))
+    X_rain = np.zeros((n1, n2))
+    X_rain_knn = np.zeros((n1, n2, 20))
+    X_snow_knn = np.zeros((n1, n2, 20))
+
+    for z in range(n1 * n2):
+        [idx_i, idx_j] = np.unravel_index(z, (n1, n2), 'F')
+        if (SurfType[idx_i, idx_j] == 0 or SurfType[idx_i, idx_j] == 16):
+            X_precip_label[idx_i, idx_j] = localized_rates['ocean']['det'][z]
+            X_rain[idx_i, idx_j] = np.mean(localized_rates['ocean']['rain'][z])
+            X_snow[idx_i, idx_j] = np.mean(localized_rates['ocean']['snow'][z])
+            X_rain_knn[idx_i, idx_j, :] = localized_rates['ocean']['rain'][z]
+            X_snow_knn[idx_i, idx_j, :] = localized_rates['ocean']['snow'][z]
+        elif SurfType[idx_i, idx_j] == 100 or SurfType[idx_i, idx_j] == 15:
+            X_precip_label[idx_i, idx_j] = localized_rates['land']['det'][z]
+            X_rain[idx_i, idx_j] = np.mean(localized_rates['land']['rain'][z])
+            X_snow[idx_i, idx_j] = np.mean(localized_rates['land']['snow'][z])
+            X_rain_knn[idx_i, idx_j, :] = localized_rates['land']['rain'][z]
+            X_snow_knn[idx_i, idx_j, :] = localized_rates['land']['snow'][z]
+        elif SurfType[idx_i, idx_j] == 200:
+            X_precip_label[idx_i, idx_j] = localized_rates['coast']['det'][z]
+            X_rain[idx_i, idx_j] = np.mean(localized_rates['coast']['rain'][z])
+            X_snow[idx_i, idx_j] = np.mean(localized_rates['coast']['snow'][z])
+            X_rain_knn[idx_i, idx_j, :] = localized_rates['coast']['rain'][z]
+            X_snow_knn[idx_i, idx_j, :] = localized_rates['coast']['snow'][z]
+        elif SurfType[idx_i, idx_j] == 300:
+            X_precip_label[idx_i, idx_j] = localized_rates['snow']['det'][z]
+            X_rain[idx_i, idx_j] = np.mean(localized_rates['snow']['rain'][z])
+            X_snow[idx_i, idx_j] = np.mean(localized_rates['snow']['snow'][z])
+            X_rain_knn[idx_i, idx_j, :] = localized_rates['snow']['rain'][z]
+            X_snow_knn[idx_i, idx_j, :] = localized_rates['snow']['snow'][z]
+        elif SurfType[idx_i, idx_j] == 400:
+            X_precip_label[idx_i, idx_j] = localized_rates['ice']['det'][z]
+            X_rain[idx_i, idx_j] = np.mean(localized_rates['ice']['rain'][z])
+            X_snow[idx_i, idx_j] = np.mean(localized_rates['ice']['snow'][z])
+            X_rain_knn[idx_i, idx_j, :] = localized_rates['ice']['rain'][z]
+            X_snow_knn[idx_i, idx_j, :] = localized_rates['ice']['snow'][z]
+        elif SurfType[idx_i, idx_j] != 0 and SurfType[idx_i, idx_j] != 16 and SurfType[idx_i, idx_j] != 15 and SurfType[idx_i, idx_j] != 100 and SurfType[idx_i, idx_j] != 200 and SurfType[idx_i, idx_j] != 300 and SurfType[idx_i, idx_j] != 400 and not np.isnan(SurfType[idx_i, idx_j]):
+            X_precip_label[idx_i, idx_j] = localized_rates['land']['det'][z]
+            X_rain[idx_i, idx_j] = np.mean(localized_rates['land']['rain'][z])
+            X_snow[idx_i, idx_j] = np.mean(localized_rates['land']['snow'][z])
+            X_rain_knn[idx_i, idx_j, :] = localized_rates['land']['rain'][z]
+            X_snow_knn[idx_i, idx_j, :] = localized_rates['land']['snow'][z]
+
+    return X_rain, X_snow, Lat, Lon, X_precip_label, X_rain_knn, X_snow_knn
+
