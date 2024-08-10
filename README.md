@@ -7,7 +7,7 @@
 by Reyhaneh Rahimi and Ardeshir Ebtehaj
 ## Overview
 
-This repository contains the implementation of the algorithm for passive microwave precipitation retrievals presented in the research paper titled "Integration of Machine Learning with a Classic Bayesian Algorithm for Passive Microwave Precipitation Retrievals." The study investigates the integration of machine learning techniques with Bayesian algorithms to enhance the accuracy of precipitation detection and estimation using data from the [Global Precipitation Measurement (GPM)](https://gpm.nasa.gov/) core satellite and the [CloudSat Profiling Radar (CPR)](https://www.jpl.nasa.gov/missions/cloudsat).
+This repository contains a lightweight implementation of the algorithm presented in the research paper titled "Integration of Machine Learning with a Classic Bayesian Algorithm for Passive Microwave Precipitation Retrievals" for passive microwave precipitation retrievals. The study investigates the integration of machine learning techniques with Bayesian algorithms to enhance the accuracy of precipitation detection and estimation using data from the [Global Precipitation Measurement (GPM)](https://gpm.nasa.gov/) core satellite and the [CloudSat Profiling Radar (CPR)](https://www.jpl.nasa.gov/missions/cloudsat).
 ## Code Availability
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/reyhaneh-92/Sharp_ML/blob/main/Demo_v2.ipynb)
 
