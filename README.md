@@ -1,3 +1,4 @@
+![SHARP_ML](https://github.com/user-attachments/assets/023a5799-fef3-4b8a-8360-7f6808176a50)
 # Machine Learning Integration with Bayesian Algorithms for Passive Microwave Precipitation Retrieval
 
 ## Overview
