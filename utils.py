@@ -1,7 +1,5 @@
-from scipy.io import loadmat
 import pandas as pd
 import numpy as np
-import h5py
 import matplotlib as plt
 import os
 import scipy.io as sio
@@ -9,29 +7,31 @@ from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 from tensorflow.keras.utils import to_categorical
 import matplotlib.pyplot as plt
-from scikeras.wrappers import KerasClassifier
+# from scikeras.wrappers import KerasClassifier
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.metrics import classification_report
 from tabulate import tabulate
 import tensorflow as tf
-from tensorflow.keras.layers import Dense, Activation, Dropout, Input
-from tensorflow.keras.layers import BatchNormalization
-from tensorflow.keras import layers, Sequential
+# from tensorflow.keras.layers import Dense, Activation, Dropout, Input
+# from tensorflow.keras.layers import BatchNormalization
+# from tensorflow.keras import layers, Sequential
 from tensorflow import keras
-from sklearn.model_selection import GridSearchCV
-from sklearn import linear_model, datasets
 from sklearn.metrics import roc_auc_score
-from tensorflow.keras import Model
+# from tensorflow.keras import Model
 import pickle
-from sklearn.metrics import make_scorer, f1_score
+from sklearn.metrics import  f1_score
 from sklearn.neighbors import NearestNeighbors
 from sklearn.linear_model import Ridge
 from keras import backend as K
 import seaborn as sns
 from scipy.stats import gaussian_kde
+from sklearn.neighbors import NearestNeighbors
+import matplotlib as mpl
+from matplotlib.colors import LinearSegmentedColormap
 
 
-path = '/panfs/jay/groups/0/ebtehaj/rahim035/sajad_s/project-4/revision'
+
+path = 'G:/My Drive/sharp_ml'
 
 
 def process_and_normalize(data, surf_type):
@@ -77,7 +77,7 @@ class CategoricalFocalLoss(tf.keras.losses.Loss):
             return K.mean(K.sum(loss, axis=-1))
         
 
-def score(y_obs, y_prd):
+def classification_score(y_obs, y_prd):
     """
     Calculate and display performance metrics for rain and snow predictions.
 
@@ -88,6 +88,7 @@ def score(y_obs, y_prd):
     Args:
         y_obs (np.ndarray): Array of observed class labels.
         y_prd (np.ndarray): Array of predicted class labels.
+        classes: 0-->clear, 1-->rain, 2-->snow
 
     params:
         2:snow
@@ -129,7 +130,7 @@ def score(y_obs, y_prd):
     print(tabulate(table, headers="firstrow", tablefmt="grid"))
 
 
-def compute_error_metrics(prd_det, prd_rate, obs, label, phase):
+def regression_score(prd_det, prd_rate, obs, label, phase):
     """
     Compute error metrics for a given label in prediction data.
 
@@ -164,17 +165,12 @@ def compute_error_metrics(prd_det, prd_rate, obs, label, phase):
         ['Metric', 'Value'],
         ['Bias', bias],
         ['MAE', mae],
-        ['RMSE', rmse],
-        ['MSE', mse]
-    ]
+        ['RMSE', rmse]
+                ]
 
     # Return the calculated error metrics
-    return {'Bias': bias, 'MAE': mae, 'RMSE': rmse, 'MSE': mse}
+    return {'Bias': bias, 'MAE': mae, 'RMSE': rmse}
 
-
-from sklearn.neighbors import NearestNeighbors
-from sklearn.linear_model import Ridge
-import numpy as np
 
 def find_knn(X, y, k):
     """
@@ -202,7 +198,7 @@ def find_knn(X, y, k):
     return distances, indices
 
 
-def loc_rate(f_train, f_test, y_train, k_nn):
+def rate_knn(f_train, f_test, y_train, k_nn):
     """
     Predict local rates using k-nearest neighbors.
 
@@ -228,6 +224,7 @@ def loc_rate(f_train, f_test, y_train, k_nn):
             y_pred_loc[i, j] = y_train[indices[i, j]]
             
     return y_pred_loc, indices
+
 
 
 def ridge_estimation(feature_trn, feature_tst, nn_idx, rate_trn, rate_tst_knn):
@@ -398,7 +395,7 @@ def plot_density_scatter(ax, y_tst, rate_prd, label_prd, label_class, threshold=
     else:
         print('Phase not defined')
         
-    metrics = compute_error_metrics(label_prd, rate_prd, y_tst, label_class, phase)
+    metrics = regression_score(label_prd, rate_prd, y_tst, label_class, phase)
 
     # Extract x and y data
     x = y_tst[idx_label, 1]
@@ -456,48 +453,13 @@ from scipy.interpolate import interp1d
 import pandas as pd
 import pickle
 
-# Custom loss class
-class CategoricalFocalLoss(tf.keras.losses.Loss):
-    def __init__(self, alpha, gamma):
-        super().__init__()
-        self.alpha = alpha
-        self.gamma = gamma
-
-    def call(self, y_true, y_pred):
-        epsilon = keras.backend.epsilon()
-        y_pred = keras.backend.clip(y_pred, epsilon, 1. - epsilon)
-        cross_entropy = -y_true * keras.backend.log(y_pred)
-        loss = self.alpha * keras.backend.pow(1 - y_pred, self.gamma) * cross_entropy
-        return keras.backend.mean(keras.backend.sum(loss, axis=-1))
-
-# Function to find k-nearest neighbors
-def find_knn(X, y, k):
-    nn = NearestNeighbors(n_neighbors=k)
-    nn.fit(X)
-    distances, indices = nn.kneighbors(y)
-    return distances, indices
-
-# Function to localize rate using k-nearest neighbors
-def loc_rate(f_train, f_test, y_train, k_nn):
-    distances, indices = find_knn(f_train, f_test, k_nn)
-    y_pred_loc = np.zeros(indices.shape)
-    for i in range(len(f_test)):
-        for j in range(k_nn):
-            y_pred_loc[i, j] = y_train[indices[i, j]]
-    return y_pred_loc
-
-# Function to match CDFs
-def CDFmatch_orbit(CDF_ref, CDF_prd, biased):
-    cdf_x = interp1d(CDF_prd[:, 0], CDF_prd[:, 1], fill_value="extrapolate")(biased)
-    x_cdf = interp1d(CDF_ref[:, 1], CDF_ref[:, 0], fill_value="extrapolate")(cdf_x)
-    RTV_DB = x_cdf
-    return RTV_DB
-
 
 
 # Function to load models
 def load_models():
-    path_models = '/panfs/jay/groups/0/ebtehaj/rahim035/sajad_s/project-4/revision/models/'
+    # path_models = '/panfs/jay/groups/0/ebtehaj/rahim035/sajad_s/project-4/revision/models/'
+    path_models = os.path.join(path, 'models')
+
     
     models = {
         'ocean': {
@@ -547,8 +509,8 @@ def load_models():
 
 # Function to load feature data
 def load_feature_data():
-    path_features = '/panfs/jay/groups/0/ebtehaj/rahim035/sajad_s/project-4/revision/features/'
-
+    # path_features = '/panfs/jay/groups/0/ebtehaj/rahim035/sajad_s/project-4/revision/features/'
+    path_features = os.path.join(path,'features')
     features_data = {
         'ocean': {
             'X_trn_rain_features_ocean': sio.loadmat(path_features + 'feature_dic_ocean.mat')['X_trn_rain_features_ocean'],
@@ -585,8 +547,8 @@ def load_feature_data():
 
 # Function to load stats
 def load_stats():
-    path_stat = '/panfs/jay/groups/0/ebtehaj/rahim035/sajad_s/project-4/revision/stats/'
-
+    # path_stat = '/panfs/jay/groups/0/ebtehaj/rahim035/sajad_s/project-4/revision/stats/'
+    path_stat = os.path.join(path, 'stats')
     stats = {
         'ocean': sio.loadmat(path_stat + 'stat_ocean_detection.mat'),
         'land': sio.loadmat(path_stat + 'stat_land_detection.mat'),
@@ -596,27 +558,27 @@ def load_stats():
     }
     return stats
 
-# Function to load CDFs
-def load_cdfs():
-    CDFs = sio.loadmat("/panfs/jay/groups/0/ebtehaj/rahim035/sajad_s/project-4/revision/orbital/trained_CDF.mat")
+# # Function to load CDFs
+# def load_cdfs():
+#     CDFs = sio.loadmat("/panfs/jay/groups/0/ebtehaj/rahim035/sajad_s/project-4/revision/orbital/trained_CDF.mat")
 
-    CDF_data = {
-        'rain': {
-            'ocean': {'prd': CDFs['CDF_prd_rain_ocean'], 'ref': CDFs['CDF_ref_rain_ocean']},
-            'land': {'prd': CDFs['CDF_prd_rain_land'], 'ref': CDFs['CDF_ref_rain_land']},
-            'coast': {'prd': CDFs['CDF_prd_rain_coast'], 'ref': CDFs['CDF_ref_rain_coast']},
-            'snow': {'prd': CDFs['CDF_prd_rain_snow'], 'ref': CDFs['CDF_ref_rain_snow']},
-            'ice': {'prd': CDFs['CDF_prd_rain_ice'], 'ref': CDFs['CDF_ref_rain_ice']}
-        },
-        'snow': {
-            'ocean': {'prd': CDFs['CDF_prd_snow_ocean'], 'ref': CDFs['CDF_ref_snow_ocean']},
-            'land': {'prd': CDFs['CDF_prd_snow_land'], 'ref': CDFs['CDF_ref_snow_land']},
-            'coast': {'prd': CDFs['CDF_prd_snow_coast'], 'ref': CDFs['CDF_ref_snow_coast']},
-            'snow': {'prd': CDFs['CDF_prd_snow_snow'], 'ref': CDFs['CDF_ref_snow_snow']},
-            'ice': {'prd': CDFs['CDF_prd_snow_ice'], 'ref': CDFs['CDF_ref_snow_ice']}
-        }
-    }
-    return CDF_data
+#     CDF_data = {
+#         'rain': {
+#             'ocean': {'prd': CDFs['CDF_prd_rain_ocean'], 'ref': CDFs['CDF_ref_rain_ocean']},
+#             'land': {'prd': CDFs['CDF_prd_rain_land'], 'ref': CDFs['CDF_ref_rain_land']},
+#             'coast': {'prd': CDFs['CDF_prd_rain_coast'], 'ref': CDFs['CDF_ref_rain_coast']},
+#             'snow': {'prd': CDFs['CDF_prd_rain_snow'], 'ref': CDFs['CDF_ref_rain_snow']},
+#             'ice': {'prd': CDFs['CDF_prd_rain_ice'], 'ref': CDFs['CDF_ref_rain_ice']}
+#         },
+#         'snow': {
+#             'ocean': {'prd': CDFs['CDF_prd_snow_ocean'], 'ref': CDFs['CDF_ref_snow_ocean']},
+#             'land': {'prd': CDFs['CDF_prd_snow_land'], 'ref': CDFs['CDF_ref_snow_land']},
+#             'coast': {'prd': CDFs['CDF_prd_snow_coast'], 'ref': CDFs['CDF_ref_snow_coast']},
+#             'snow': {'prd': CDFs['CDF_prd_snow_snow'], 'ref': CDFs['CDF_ref_snow_snow']},
+#             'ice': {'prd': CDFs['CDF_prd_snow_ice'], 'ref': CDFs['CDF_ref_snow_ice']}
+#         }
+#     }
+#     return CDF_data
 
 # Function to preprocess input data for a specific orbit file
 def preprocess_input_data(file_path, stats):
@@ -685,8 +647,8 @@ def localize_retrievals(predictions, features_data, k_nn_rain, k_nn_snow):
     localized_rates = {}
     for region in predictions:
         localized_rates[region] = {
-            'rain': loc_rate(features_data[region]['X_trn_rain_features_' + region], predictions[region]['rain'], features_data[region]['y_trn_rain_' + region][:, 1], k_nn_rain),
-            'snow': loc_rate(features_data[region]['X_trn_snow_features_' + region], predictions[region]['snow'], features_data[region]['y_trn_snow_' + region][:, 1], k_nn_snow),
+            'rain': rate_knn(features_data[region]['X_trn_rain_features_' + region], predictions[region]['rain'], features_data[region]['y_trn_rain_' + region][:, 1], k_nn_rain),
+            'snow': rate_knn(features_data[region]['X_trn_snow_features_' + region], predictions[region]['snow'], features_data[region]['y_trn_snow_' + region][:, 1], k_nn_snow),
             'det': predictions[region]['det']
         }
     return localized_rates
@@ -695,7 +657,7 @@ def localize_retrievals(predictions, features_data, k_nn_rain, k_nn_snow):
 
 # Function to reconstruct orbit data
 def reconstruct_orbit(localized_rates, orbit_num):
-    orb = '/panfs/jay/groups/0/ebtehaj/rahim035/sajad_s/project-4/revision/orbital/Orbit_' + orbit_num + '.mat'
+    orb = path + '/orbital/Orbit_' + orbit_num + '.mat'
     GPROF = sio.loadmat(orb)
 
     SurfType = GPROF['A2_GPROF']['surfaceType'][0][0]
@@ -749,4 +711,26 @@ def reconstruct_orbit(localized_rates, orbit_num):
             X_snow_knn[idx_i, idx_j, :] = localized_rates['land']['snow'][z]
 
     return X_rain, X_snow, Lat, Lon, X_precip_label, X_rain_knn, X_snow_knn
+
+
+def load_colormaps(mat_file_path):
+    # Load the colormaps from the .mat file
+    Cmap = sio.loadmat(mat_file_path)
+    
+    # Extract colormaps from the loaded data
+    cmap_rain = Cmap['Cmap_rain']
+    cmap_snow = Cmap['Cmap_snow']
+    
+    # Create ListedColormaps
+    cmap_snow = mpl.colors.ListedColormap(cmap_snow, name='myColorMap_snow', N=cmap_snow.shape[0])
+    cmap_rain = mpl.colors.ListedColormap(cmap_rain, name='myColorMap_rain', N=cmap_rain.shape[0])
+    
+    # Define a custom color list for rain
+    colorlist_rain = ["darkorange", "gold", "lawngreen", "lightseagreen"]
+    
+    # Create a LinearSegmentedColormap and reverse it
+    cmap_rain = LinearSegmentedColormap.from_list('testCmap', colors=colorlist_rain, N=256)
+    cmap_rain = cmap_rain.reversed()
+    
+    return cmap_rain, cmap_snow
 
