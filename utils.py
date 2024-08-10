@@ -30,8 +30,7 @@ import matplotlib as mpl
 from matplotlib.colors import LinearSegmentedColormap
 
 
-
-path = 'G:/My Drive/sharp_ml'
+path = '/content/drive/MyDrive/sharp_ml'
 
 
 def process_and_normalize(data, surf_type):
@@ -458,7 +457,7 @@ import pickle
 # Function to load models
 def load_models():
     # path_models = '/panfs/jay/groups/0/ebtehaj/rahim035/sajad_s/project-4/revision/models/'
-    path_models = os.path.join(path, 'models')
+    path_models = os.path.join(path, 'models/')
 
     
     models = {
@@ -510,7 +509,7 @@ def load_models():
 # Function to load feature data
 def load_feature_data():
     # path_features = '/panfs/jay/groups/0/ebtehaj/rahim035/sajad_s/project-4/revision/features/'
-    path_features = os.path.join(path,'features')
+    path_features = os.path.join(path,'features/')
     features_data = {
         'ocean': {
             'X_trn_rain_features_ocean': sio.loadmat(path_features + 'feature_dic_ocean.mat')['X_trn_rain_features_ocean'],
@@ -548,7 +547,7 @@ def load_feature_data():
 # Function to load stats
 def load_stats():
     # path_stat = '/panfs/jay/groups/0/ebtehaj/rahim035/sajad_s/project-4/revision/stats/'
-    path_stat = os.path.join(path, 'stats')
+    path_stat = os.path.join(path, 'stats/')
     stats = {
         'ocean': sio.loadmat(path_stat + 'stat_ocean_detection.mat'),
         'land': sio.loadmat(path_stat + 'stat_land_detection.mat'),
@@ -656,6 +655,7 @@ def localize_retrievals(predictions, features_data, k_nn_rain, k_nn_snow):
 
 
 # Function to reconstruct orbit data
+# Function to reconstruct orbit data
 def reconstruct_orbit(localized_rates, orbit_num):
     orb = path + '/orbital/Orbit_' + orbit_num + '.mat'
     GPROF = sio.loadmat(orb)
@@ -675,42 +675,31 @@ def reconstruct_orbit(localized_rates, orbit_num):
         [idx_i, idx_j] = np.unravel_index(z, (n1, n2), 'F')
         if (SurfType[idx_i, idx_j] == 0 or SurfType[idx_i, idx_j] == 16):
             X_precip_label[idx_i, idx_j] = localized_rates['ocean']['det'][z]
-            X_rain[idx_i, idx_j] = np.mean(localized_rates['ocean']['rain'][z])
-            X_snow[idx_i, idx_j] = np.mean(localized_rates['ocean']['snow'][z])
-            X_rain_knn[idx_i, idx_j, :] = localized_rates['ocean']['rain'][z]
-            X_snow_knn[idx_i, idx_j, :] = localized_rates['ocean']['snow'][z]
+            X_rain[idx_i, idx_j] = np.mean(localized_rates['ocean']['rain'][0][z])
+            X_snow[idx_i, idx_j] = np.mean(localized_rates['ocean']['snow'][0][z])
         elif SurfType[idx_i, idx_j] == 100 or SurfType[idx_i, idx_j] == 15:
             X_precip_label[idx_i, idx_j] = localized_rates['land']['det'][z]
-            X_rain[idx_i, idx_j] = np.mean(localized_rates['land']['rain'][z])
-            X_snow[idx_i, idx_j] = np.mean(localized_rates['land']['snow'][z])
-            X_rain_knn[idx_i, idx_j, :] = localized_rates['land']['rain'][z]
-            X_snow_knn[idx_i, idx_j, :] = localized_rates['land']['snow'][z]
+            X_rain[idx_i, idx_j] = np.mean(localized_rates['land']['rain'][0][z])
+            X_snow[idx_i, idx_j] = np.mean(localized_rates['land']['snow'][0][z])
         elif SurfType[idx_i, idx_j] == 200:
             X_precip_label[idx_i, idx_j] = localized_rates['coast']['det'][z]
-            X_rain[idx_i, idx_j] = np.mean(localized_rates['coast']['rain'][z])
-            X_snow[idx_i, idx_j] = np.mean(localized_rates['coast']['snow'][z])
-            X_rain_knn[idx_i, idx_j, :] = localized_rates['coast']['rain'][z]
-            X_snow_knn[idx_i, idx_j, :] = localized_rates['coast']['snow'][z]
+            X_rain[idx_i, idx_j] = np.mean(localized_rates['coast']['rain'][0][z])
+            X_snow[idx_i, idx_j] = np.mean(localized_rates['coast']['snow'][0][z])
         elif SurfType[idx_i, idx_j] == 300:
             X_precip_label[idx_i, idx_j] = localized_rates['snow']['det'][z]
-            X_rain[idx_i, idx_j] = np.mean(localized_rates['snow']['rain'][z])
-            X_snow[idx_i, idx_j] = np.mean(localized_rates['snow']['snow'][z])
-            X_rain_knn[idx_i, idx_j, :] = localized_rates['snow']['rain'][z]
-            X_snow_knn[idx_i, idx_j, :] = localized_rates['snow']['snow'][z]
+            X_rain[idx_i, idx_j] = np.mean(localized_rates['snow']['rain'][0][z])
+            X_snow[idx_i, idx_j] = np.mean(localized_rates['snow']['snow'][0][z])
         elif SurfType[idx_i, idx_j] == 400:
             X_precip_label[idx_i, idx_j] = localized_rates['ice']['det'][z]
-            X_rain[idx_i, idx_j] = np.mean(localized_rates['ice']['rain'][z])
-            X_snow[idx_i, idx_j] = np.mean(localized_rates['ice']['snow'][z])
-            X_rain_knn[idx_i, idx_j, :] = localized_rates['ice']['rain'][z]
-            X_snow_knn[idx_i, idx_j, :] = localized_rates['ice']['snow'][z]
+            X_rain[idx_i, idx_j] = np.mean(localized_rates['ice']['rain'][0][z])
+            X_snow[idx_i, idx_j] = np.mean(localized_rates['ice']['snow'][0][z])
         elif SurfType[idx_i, idx_j] != 0 and SurfType[idx_i, idx_j] != 16 and SurfType[idx_i, idx_j] != 15 and SurfType[idx_i, idx_j] != 100 and SurfType[idx_i, idx_j] != 200 and SurfType[idx_i, idx_j] != 300 and SurfType[idx_i, idx_j] != 400 and not np.isnan(SurfType[idx_i, idx_j]):
             X_precip_label[idx_i, idx_j] = localized_rates['land']['det'][z]
-            X_rain[idx_i, idx_j] = np.mean(localized_rates['land']['rain'][z])
-            X_snow[idx_i, idx_j] = np.mean(localized_rates['land']['snow'][z])
-            X_rain_knn[idx_i, idx_j, :] = localized_rates['land']['rain'][z]
-            X_snow_knn[idx_i, idx_j, :] = localized_rates['land']['snow'][z]
+            X_rain[idx_i, idx_j] = np.mean(localized_rates['land']['rain'][0][z])
+            X_snow[idx_i, idx_j] = np.mean(localized_rates['land']['snow'][0][z])
 
-    return X_rain, X_snow, Lat, Lon, X_precip_label, X_rain_knn, X_snow_knn
+    return X_rain, X_snow, X_precip_label, Lat, Lon
+
 
 
 def load_colormaps(mat_file_path):
