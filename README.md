@@ -25,7 +25,7 @@ Integration of machine learning with a classic Bayesian algorithm is investigate
 
 ## DATA and Models
 
-All trained models and the feature dictionaries for Bayesian retrievals are available in a Google Drive folder. Users can download this folder and place it in their own Google Drive to utilize the provided Google Colab notebook. This notebook allows users to run the models on a small provided test set for demonstration and experimentation purposes.
+All trained models and the feature dictionaries for Bayesian retrievals are available in a Google Drive folder. Users can download this folder and place it in their own Google Drive or local directory to utilize the provided Google Colab notebook for training and testing with a large dataset. This notebook allows users to run the trained models on a small test set for demonstration and reproducibility of the algorithm.
 
 ### Accessing the Data
 
