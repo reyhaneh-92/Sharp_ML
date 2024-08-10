@@ -18,9 +18,10 @@ Integration of machine learning with a classic Bayesian algorithm is investigate
 
 ## Features
 
-- **Machine Learning Models**: Implementation of eXtreme Gradient Boosting Decision Tree (XGBDT) and Multi-Layer Perceptron (MLP) models combined with Bayesian approach.
-- **Loss Functions**: Utilization of weighted cross entropy and focal loss functions for improved model accuracy in a classification task with imbalanced data.
-- **Orbital Retrieval**: Implements a two-step algorithm for retrieving precipitation data from a Global Precipitation Measurement Microwave Imager (GMI) orbit, facilitating detailed analysis of satellite data.
+- **Orbital Retrieval**: Implements a two-step algorithm for retrieving precipitation from observations by the Global Precipitation Measurement Microwave Imager (GMI) and its coincidences with the Cloud Profiling Radar (CPR) onboard CloudSat satellite. 
+- **Machine Learning Models**: Implementation of eXtreme Gradient Boosting Decision Tree (XGBDT) combined with a Bayesian passive microwave retrieval algorithm in the embedding space of a Multi-Layer Perceptron (MLP) model.
+- **Loss Functions**: Utilization of weighted cross entropy and focal loss functions for improved accuracy in the detection of precipitation occurrence and phase with imbalanced training data.
+
 
 ## DATA and Models
 
