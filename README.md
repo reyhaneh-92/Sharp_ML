@@ -18,6 +18,26 @@ Integration of machine learning with a classic Bayesian algorithm is investigate
 - **Loss Functions**: Utilization of weighted cross entropy and focal loss functions for improved model accuracy in a classification task with imbalance data.
 - ** Orbital Retrieval**: Implements a two step algorithm for retrieving precipitation data from a Global Precipitation Measurement Microwave Imager (GMI) orbit, facilitating detailed analysis of satellite data.
 
+## DATA and Models
+
+All trained models and the feature dictionaries for Bayesian retrievals are available in a Google Drive folder. Users can download this folder and place it in their own Google Drive to utilize the provided Google Colab notebook. This notebook allows users to run the models on a small provided test set for demonstration and experimentation purposes.
+
+### Accessing the Data
+
+- **Google Drive Link**: [Download the models and data](https://drive.google.com/drive/folders/1NQFVJy7HsQhYNz35usuZgxmT5HOMeqqy?usp=sharing)
+  
+### Instructions
+
+1. **Download the Folder**: Access the Google Drive link and download the entire folder containing the models and data.
+
+2. **Upload to Google Drive**: Upload the downloaded folder to your Google Drive account to integrate with the Colab notebook.
+
+3. **Run the Google Colab Notebook**:
+   - Open the provided Colab notebook from this repository.
+   - Follow the instructions within the notebook to execute the models on the test dataset.
+   - Analyze the results and experiment with the models using the test data.
+
+This setup allows users to easily access and run the models without needing extensive local resources, leveraging the power of cloud computing for efficient experimentation.
 
 ## Requirements
 
@@ -30,12 +50,7 @@ Integration of machine learning with a classic Bayesian algorithm is investigate
 - Matplotlib
 - cartopy (for orbital visualization)
 
-## Installation
 
-To install the required dependencies, run:
-
-```bash
-pip install -r requirements.txt
 
 
 
