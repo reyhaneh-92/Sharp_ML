@@ -30,7 +30,7 @@ import matplotlib as mpl
 from matplotlib.colors import LinearSegmentedColormap
 
 
-path = '/content/drive/MyDrive/sharp_ml'
+path = "/content/sharp_ml/"
 
 
 def process_and_normalize(data, surf_type):
