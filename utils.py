@@ -30,7 +30,7 @@ import matplotlib as mpl
 from matplotlib.colors import LinearSegmentedColormap
 
 
-path = "/content/sharp_ml/"
+path = '/content/sharp_ml/'
 
 
 def process_and_normalize(data, surf_type):
@@ -149,8 +149,10 @@ def regression_score(prd_det, prd_rate, obs, label, phase):
               'Bias', 'MAE', 'RMSE', 'MSE'.
     """
     # Identifying true positives
-    quant = np.quantile(obs[:, 1], 1)
-    idx_TP = (prd_det == label) & (obs[:, 0] == label) & (obs[:, 1] < quant)
+    quant_h = np.quantile(obs[:, 1], 0.99)
+    quant_l = np.quantile(obs[:, 1], 0.015)
+
+    idx_TP = (prd_det == label) & (obs[:, 0] == label) & (obs[:, 1] < quant_h) & (obs[:, 1] > quant_l)
 
     # Calculating errors
     error = prd_rate[idx_TP] - obs[idx_TP, 1]
@@ -159,15 +161,10 @@ def regression_score(prd_det, prd_rate, obs, label, phase):
     rmse = np.sqrt(np.mean(error**2))
     mse = np.mean(error**2)
 
-    # Creating the table (Commented out)
-    table_score = [
-        ['Metric', 'Value'],
-        ['Bias', bias],
-        ['MAE', mae],
-        ['RMSE', rmse]
-                ]
-
     # Return the calculated error metrics
+    print(f"bias is {bias:.3f}")
+    print(f"mae is {mae:.3f}")
+    print(f"rmse is {rmse:.3f}")
     return {'Bias': bias, 'MAE': mae, 'RMSE': rmse}
 
 
